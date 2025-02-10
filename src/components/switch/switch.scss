@@ -6,8 +6,8 @@ $switch-margin: 16px !default;
 
 .md-inline-form {
   md-switch {
-    margin-top: 18px;
-    margin-bottom: 19px;
+    margin-top: $input-container-vertical-margin;
+    margin-bottom: $input-container-vertical-margin + 1px;
   }
 }
 
@@ -29,7 +29,7 @@ md-switch {
     @include rtl(margin-left, inherit, 0);
     @include rtl(margin-right, 0, inherit);
   }
-  
+
   &[disabled] {
     cursor: default;
 
@@ -44,8 +44,13 @@ md-switch {
     height: $switch-height;
     position: relative;
     user-select: none;
-    margin-right: 8px;
+    @include rtl-prop(margin-right, margin-left, 8px, 0px);
     float: left;
+  }
+
+  &.md-inverted .md-container {
+    @include rtl(margin-right, initial, 8px);
+    @include rtl(margin-left, 8px, initial);
   }
 
   // If the user moves his mouse off the switch, stil display grabbing cursor
@@ -56,18 +61,12 @@ md-switch {
     }
   }
 
-  &.md-focused:not([disabled]) {
+  &.md-focused {
     .md-thumb:before {
       left: -8px;
       top: -8px;
       right: -8px;
       bottom: -8px;
-    }
-
-    &:not(.md-checked) {
-      .md-thumb:before {
-        background-color: rgba(0, 0, 0, 0.12);
-      }
     }
   }
 
@@ -80,14 +79,14 @@ md-switch {
   .md-bar {
     left: 1px;
     width: $switch-width - 2px;
-    top: $switch-height / 2 - $switch-bar-height / 2;
+    top: $switch-height * 0.5 - $switch-bar-height * 0.5;
     height: $switch-bar-height;
     border-radius: 8px;
     position: absolute;
   }
 
   .md-thumb-container {
-    top: $switch-height / 2 - $switch-thumb-size / 2;
+    top: $switch-height * 0.5 - $switch-thumb-size * 0.5;
     left: 0;
     width: $switch-width - $switch-thumb-size;
     position: absolute;

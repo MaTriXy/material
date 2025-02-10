@@ -2,7 +2,15 @@ $radio-width: 20px !default;
 $radio-height: $radio-width !default;
 $radio-text-margin: 10px !default;
 $radio-top-left: 12px !default;
-$radio-margin: 16px;
+$radio-margin: 16px !default;
+
+@mixin md-radio-button-disabled {
+  cursor: default;
+
+  .md-container {
+    cursor: default;
+  }
+}
 
 md-radio-button {
   box-sizing: border-box;
@@ -12,13 +20,9 @@ md-radio-button {
   cursor: pointer;
   position: relative;
 
-  // disabled
+  // When the radio-button is disabled.
   &[disabled] {
-    cursor: default;
-
-    .md-container {
-      cursor: default;
-    }
+    @include md-radio-button-disabled();
   }
 
   .md-container {
@@ -107,47 +111,14 @@ md-radio-button {
     pointer-events: none;
     width: auto;
   }
-
-  .circle {
-    border-radius: 50%;
-  }
-
 }
 
 md-radio-group {
-  &.layout-column,
-  &.layout-xs-column, &.layout-gt-xs-column,
-  &.layout-sm-column, &.layout-gt-sm-column,
-  &.layout-md-column, &.layout-gt-md-column,
-  &.layout-lg-column, &.layout-gt-lg-column,
-  &.layout-xl-column {
-    md-radio-button {
-      margin-bottom: $radio-margin;
-    }
-  }
-
-  &.layout-row,
-  &.layout-xs-row, &.layout-gt-xs-row,
-  &.layout-sm-row, &.layout-gt-sm-row,
-  &.layout-md-row, &.layout-gt-md-row,
-  &.layout-lg-row, &.layout-gt-lg-row,
-  &.layout-xl-row {
-    md-radio-button {
-      margin-top: 0;
-      margin-bottom: 0;
-      @include rtl(margin-left, inherit, $radio-margin);
-      @include rtl(margin-right, $radio-margin, inherit);
-
-      &:last-of-type {
-        @include rtl(margin-left, inherit, 0);
-        @include rtl(margin-right, 0, inherit);
-      }
-    }
-  }
   &:focus {
     outline: none;
   }
-  &.md-focused {
+
+  &.md-focused.ng-not-empty {
     .md-checked .md-container:before {
       left: -8px;
       top: -8px;
@@ -155,18 +126,41 @@ md-radio-group {
       bottom: -8px;
     }
   }
+  &.md-focused.ng-empty>md-radio-button:first-child {
+    .md-container:before {
+      left: -8px;
+      top: -8px;
+      right: -8px;
+      bottom: -8px;
+    }
+  }
+
+  &[disabled] md-radio-button {
+    @include md-radio-button-disabled();
+  }
+}
+
+@include when-layout-row(md-radio-button) {
+  margin-bottom: 0;
 }
 
 .md-inline-form {
   md-radio-group {
-    margin: 18px 0 19px;
+    margin: $input-container-vertical-margin 0 $input-container-vertical-margin + 1px;
     md-radio-button {
       display: inline-block;
       height: 30px;
-      padding: 2px;
+      padding: 2px 10px 2px 6px;
       box-sizing: border-box;
       margin-top: 0;
       margin-bottom: 0;
+
+      .md-label {
+        top: 4px;
+      }
+      .md-container {
+        margin-top: 2px;
+      }
     }
   }
 }

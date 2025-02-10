@@ -5,20 +5,47 @@ angular.module('listDemo1', ['ngMaterial'])
     .iconSet('communication', 'img/icons/sets/communication-icons.svg', 24);
 })
 .controller('AppCtrl', function($scope) {
-    var imagePath = 'img/list/60.jpeg';
+    var imagePath = 'img/60.jpeg';
 
     $scope.phones = [
-      { type: 'Home', number: '(555) 251-1234' },
-      { type: 'Cell', number: '(555) 786-9841' },
-      { type: 'Office', number: '(555) 314-1592' }
+      {
+        type: 'Home',
+        number: '(555) 251-1234',
+        options: {
+          icon: 'communication:phone'
+        }
+      },
+      {
+        type: 'Cell',
+        number: '(555) 786-9841',
+        options: {
+          icon: 'communication:phone',
+          avatarIcon: true
+        }
+      },
+      {
+        type: 'Office',
+        number: '(555) 314-1592',
+        options: {
+          face : imagePath
+        }
+      },
+      {
+        type: 'Offset',
+        number: '(555) 192-2010',
+        options: {
+          offset: true,
+          actionIcon: 'communication:phone'
+        }
+      }
     ];
     $scope.todos = [
       {
         face : imagePath,
-        what: 'Brunch this weekend?',
-        who: 'Min Li Chan',
+        what: 'My quirky, joyful porg',
+        who: 'Kaguya w/ #qjporg',
         when: '3:08PM',
-        notes: " I'll be in your neighborhood doing errands"
+        notes: " I was lucky to find a quirky, joyful porg!"
       },
       {
         face : imagePath,

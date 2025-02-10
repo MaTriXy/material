@@ -17,7 +17,6 @@
     .module('material.components.fabSpeedDial', [
       'material.core',
       'material.components.fabShared',
-      'material.components.fabTrigger',
       'material.components.fabActions'
     ])
 
@@ -77,16 +76,16 @@
    * <hljs lang="html">
    * <md-fab-speed-dial md-direction="up" class="md-fling">
    *   <md-fab-trigger>
-   *     <md-button aria-label="Add..."><md-icon icon="/img/icons/plus.svg"></md-icon></md-button>
+   *     <md-button aria-label="Add..."><md-icon md-svg-src="/img/icons/plus.svg"></md-icon></md-button>
    *   </md-fab-trigger>
    *
    *   <md-fab-actions>
    *     <md-button aria-label="Add User">
-   *       <md-icon icon="/img/icons/user.svg"></md-icon>
+   *       <md-icon md-svg-src="/img/icons/user.svg"></md-icon>
    *     </md-button>
    *
    *     <md-button aria-label="Add Group">
-   *       <md-icon icon="/img/icons/group.svg"></md-icon>
+   *       <md-icon md-svg-src="/img/icons/group.svg"></md-icon>
    *     </md-button>
    *   </md-fab-actions>
    * </md-fab-speed-dial>
@@ -107,14 +106,14 @@
 
       bindToController: true,
       controller: 'MdFabController',
-      controllerAs: 'vm',
+      controllerAs: 'ctrl',
 
       link: FabSpeedDialLink
     };
 
     function FabSpeedDialLink(scope, element) {
       // Prepend an element to hold our CSS variables so we can use them in the animations below
-      element.prepend('<div class="md-css-variables"></div>');
+      element.prepend('<div class="_md-css-variables"></div>');
     }
   }
 
@@ -123,7 +122,7 @@
 
     function runAnimation(element) {
       // Don't run if we are still waiting and we are not ready
-      if (element.hasClass('md-animations-waiting') && !element.hasClass('md-animations-ready')) {
+      if (element.hasClass('md-animations-waiting') && !element.hasClass('_md-animations-ready')) {
         return;
       }
 
@@ -135,7 +134,7 @@
       var triggerElement = el.querySelector('md-fab-trigger');
 
       // Grab our element which stores CSS variables
-      var variablesElement = el.querySelector('.md-css-variables');
+      var variablesElement = el.querySelector('._md-css-variables');
 
       // Setup JS variables based on our CSS variables
       var startZIndex = parseInt(window.getComputedStyle(variablesElement).zIndex);
@@ -146,7 +145,7 @@
 
         styles.transform = styles.webkitTransform = '';
         styles.transitionDelay = '';
-        styles.opacity = 1;
+        styles.opacity = ctrl.isOpen ? 1 : 0;
 
         // Make the items closest to the trigger have the highest z-index
         styles.zIndex = (items.length - index) + startZIndex;
@@ -206,7 +205,7 @@
         runAnimation(element);
         delayDone(done);
       }
-    }
+    };
   }
 
   function MdFabSpeedDialScaleAnimation($timeout) {
@@ -220,7 +219,7 @@
       var items = el.querySelectorAll('.md-fab-action-item');
 
       // Grab our element which stores CSS variables
-      var variablesElement = el.querySelector('.md-css-variables');
+      var variablesElement = el.querySelector('._md-css-variables');
 
       // Setup JS variables based on our CSS variables
       var startZIndex = parseInt(window.getComputedStyle(variablesElement).zIndex);
@@ -249,6 +248,6 @@
         runAnimation(element);
         delayDone(done);
       }
-    }
+    };
   }
 })();

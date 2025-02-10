@@ -24,7 +24,7 @@
    * @usage
    * See the `<md-fab-speed-dial>` or `<md-fab-toolbar>` directives for example usage.
    */
-  function MdFabActionsDirective() {
+  function MdFabActionsDirective($mdUtil) {
     return {
       restrict: 'E',
 
@@ -32,11 +32,13 @@
 
       compile: function(element, attributes) {
         var children = element.children();
+        var actionItemButtons;
+        var hasNgRepeat = $mdUtil.prefixer().hasAttribute(children, 'ng-repeat');
 
-        var hasNgRepeat = false;
-
-        angular.forEach(['', 'data-', 'x-'], function(prefix) {
-          hasNgRepeat = hasNgRepeat || (children.attr(prefix + 'ng-repeat') ? true : false);
+        // Action item buttons should not be in the tab order when the speed dial is closed.
+        actionItemButtons = element.find('md-button');
+        angular.forEach(actionItemButtons, function(button) {
+          button.setAttribute('tabindex', -1);
         });
 
         // Support both ng-repeat and static content
@@ -47,7 +49,6 @@
           children.wrap('<div class="md-fab-action-item">');
         }
       }
-    }
+    };
   }
-
 })();

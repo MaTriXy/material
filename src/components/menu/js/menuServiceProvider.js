@@ -2,7 +2,7 @@ angular
   .module('material.components.menu')
   .provider('$mdMenu', MenuProvider);
 
-/*
+/**
  * Interim element provider for the menu.
  * Handles behavior for a menu while it is open, including:
  *    - handling animating the menu opening/closing
@@ -22,7 +22,10 @@ function MenuProvider($$interimElementProvider) {
     });
 
   /* @ngInject */
-  function menuDefaultOptions($mdUtil, $mdTheming, $mdConstant, $document, $window, $q, $$rAF, $animateCss, $animate) {
+  function menuDefaultOptions($mdUtil, $mdTheming, $mdConstant, $document, $window, $q, $$rAF,
+                              $animateCss, $animate, $log) {
+
+    var prefixer = $mdUtil.prefixer();
     var animator = $mdUtil.dom.animator;
 
     return {
@@ -33,7 +36,7 @@ function MenuProvider($$interimElementProvider) {
       disableParentScroll: true,
       skipCompile: true,
       preserveScope: true,
-      skipHide: true,
+      multiple: true,
       themable: true
     };
 
@@ -56,7 +59,7 @@ function MenuProvider($$interimElementProvider) {
       if (options.hasBackdrop) {
         options.backdrop = $mdUtil.createBackdrop(scope, "md-menu-backdrop md-click-catcher");
 
-        $animate.enter(options.backdrop, $document[0].body);
+        $animate.enter(options.backdrop, options.backdropParent || $document[0].body);
       }
 
       /**
@@ -74,13 +77,17 @@ function MenuProvider($$interimElementProvider) {
      */
     function onRemove(scope, element, opts) {
       opts.cleanupInteraction();
+      opts.cleanupBackdrop();
       opts.cleanupResizing();
       opts.hideBackdrop();
+
+      // Before the menu is closing remove the clickable class.
+      element.removeClass('md-clickable');
 
       // For navigation $destroy events, do a quick, non-animated removal,
       // but for normal closes (from clicks, etc) animate the removal
 
-      return (opts.$destroy === true) ? detachAndClean() : animateRemoval().then( detachAndClean );
+      return (opts.$destroy === true) ? detachAndClean() : animateRemoval().then(detachAndClean);
 
       /**
        * For normal closes, animate the removal.
@@ -108,8 +115,16 @@ function MenuProvider($$interimElementProvider) {
     function onShow(scope, element, opts) {
       sanitizeAndConfigure(opts);
 
-      // Wire up theming on our menu element
-      $mdTheming.inherit(opts.menuContentEl, opts.target);
+      if (opts.menuContentEl[0]) {
+        // Inherit the theme from the target element.
+        $mdTheming.inherit(opts.menuContentEl, opts.target);
+      } else {
+        $log.warn(
+          '$mdMenu: Menu elements should always contain a `md-menu-content` element,' +
+          'otherwise interactivity features will not work properly.',
+          element
+        );
+      }
 
       // Register various listeners to move menu on resize/orientation change
       opts.cleanupResizing = startRepositioningOnResize();
@@ -120,6 +135,11 @@ function MenuProvider($$interimElementProvider) {
         .then(function(response) {
           opts.alreadyOpen = true;
           opts.cleanupInteraction = activateInteraction();
+          opts.cleanupBackdrop = setupBackdrop();
+
+          // Since the menu finished its animation, mark the menu as clickable.
+          element.addClass('md-clickable');
+
           return response;
         });
 
@@ -149,7 +169,7 @@ function MenuProvider($$interimElementProvider) {
       }
 
       /**
-       * Check for valid opts and set some sane defaults
+       * Check for valid opts and set some useful defaults
        */
       function sanitizeAndConfigure() {
         if (!opts.target) {
@@ -160,7 +180,7 @@ function MenuProvider($$interimElementProvider) {
         angular.extend(opts, {
           alreadyOpen: false,
           isRemoved: false,
-          target: angular.element(opts.target), //make sure it's not a naked dom node
+          target: angular.element(opts.target), // make sure it's not a naked DOM node
           parent: angular.element(opts.parent),
           menuContentEl: angular.element(element[0].querySelector('md-menu-content'))
         });
@@ -189,18 +209,44 @@ function MenuProvider($$interimElementProvider) {
           $window.removeEventListener('resize', repositionMenu);
           $window.removeEventListener('orientationchange', repositionMenu);
 
-        }
+        };
       }
 
       /**
-       * Activate interaction on the menu. Wire up keyboard listerns for
-       * clicks, keypresses, backdrop closing, etc.
+       * Sets up the backdrop and listens for click elements.
+       * Once the backdrop will be clicked, the menu will automatically close.
+       * @returns {!Function} Function to remove the backdrop.
+       */
+      function setupBackdrop() {
+        if (!opts.backdrop) return angular.noop;
+
+        opts.backdrop.on('click', onBackdropClick);
+
+        return function() {
+          opts.backdrop.off('click', onBackdropClick);
+        };
+      }
+
+      /**
+       * Function to be called whenever the backdrop is clicked.
+       * @param {!MouseEvent} event
+       */
+      function onBackdropClick(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        scope.$apply(function() {
+          opts.mdMenuCtrl.close(true, { closeAll: true });
+        });
+      }
+
+      /**
+       * Activate interaction on the menu. Resolves the focus target and closes the menu on
+       * escape or option click.
+       * @returns {!Function} Function to deactivate the interaction listeners.
        */
       function activateInteraction() {
-        element.addClass('md-clickable');
-
-        // close on backdrop click
-        if (opts.backdrop) opts.backdrop.on('click', onBackdropClick);
+        if (!opts.menuContentEl[0]) return angular.noop;
 
         // Wire up keyboard listeners.
         // - Close on escape,
@@ -209,19 +255,31 @@ function MenuProvider($$interimElementProvider) {
         opts.menuContentEl.on('keydown', onMenuKeyDown);
         opts.menuContentEl[0].addEventListener('click', captureClickListener, true);
 
-        // kick off initial focus in the menu on the first element
-        var focusTarget = opts.menuContentEl[0].querySelector('[md-menu-focus-target]');
-        if ( !focusTarget ) {
-          var firstChild = opts.menuContentEl[0].firstElementChild;
+        // kick off initial focus in the menu on the first enabled element
+        var focusTarget = opts.menuContentEl[0]
+          .querySelector(prefixer.buildSelector(['md-menu-focus-target', 'md-autofocus']));
 
-          focusTarget = firstChild && (firstChild.querySelector('.md-button:not([disabled])') || firstChild.firstElementChild);
+        if (!focusTarget) {
+          var childrenLen = opts.menuContentEl[0].children.length;
+          for (var childIndex = 0; childIndex < childrenLen; childIndex++) {
+            var child = opts.menuContentEl[0].children[childIndex];
+            focusTarget = child.querySelector('.md-button:not([disabled])');
+            if (focusTarget) {
+              break;
+            }
+            // Need to check the attribute as well since this might be a custom element whose
+            // disabled property is undefined.
+            if (child.firstElementChild && !child.firstElementChild.disabled &&
+                !child.firstElementChild.getAttribute('disabled')) {
+              focusTarget = child.firstElementChild;
+              break;
+            }
+          }
         }
 
         focusTarget && focusTarget.focus();
 
         return function cleanupInteraction() {
-          element.removeClass('md-clickable');
-          if (opts.backdrop) opts.backdrop.off('click', onBackdropClick);
           opts.menuContentEl.off('keydown', onMenuKeyDown);
           opts.menuContentEl[0].removeEventListener('click', captureClickListener, true);
         };
@@ -234,8 +292,18 @@ function MenuProvider($$interimElementProvider) {
           var handled;
           switch (ev.keyCode) {
             case $mdConstant.KEY_CODE.ESCAPE:
-              opts.mdMenuCtrl.close(false, { closeAll: true });
+              if (opts.nestLevel) {
+                opts.mdMenuCtrl.close();
+              } else {
+                opts.mdMenuCtrl.close(false, { closeAll: true });
+              }
               handled = true;
+              break;
+            case $mdConstant.KEY_CODE.TAB:
+              opts.mdMenuCtrl.close(false, { closeAll: true });
+              // Don't prevent default or stop propagation on this event as we want tab
+              // to move the focus to the next focusable element on the page.
+              handled = false;
               break;
             case $mdConstant.KEY_CODE.UP_ARROW:
               if (!focusMenuItem(ev, opts.menuContentEl, opts, -1) && !opts.nestLevel) {
@@ -296,7 +364,7 @@ function MenuProvider($$interimElementProvider) {
               }
               break;
             }
-          } while (target = target.parentNode)
+          } while (target = target.parentNode);
 
           function close() {
             scope.$apply(function() {
@@ -306,25 +374,17 @@ function MenuProvider($$interimElementProvider) {
 
           function hasAnyAttribute(target, attrs) {
             if (!target) return false;
+
             for (var i = 0, attr; attr = attrs[i]; ++i) {
-              var altForms = [attr, 'data-' + attr, 'x-' + attr];
-              for (var j = 0, rawAttr; rawAttr = altForms[j]; ++j) {
-                if (target.hasAttribute(rawAttr)) {
-                  return true;
-                }
+              if (prefixer.hasAttribute(target, attr)) {
+                return true;
               }
             }
+
             return false;
           }
         }
 
-        opts.menuContentEl[0].addEventListener('click', captureClickListener, true);
-
-        return function cleanupInteraction() {
-          element.removeClass('md-clickable');
-          opts.menuContentEl.off('keydown');
-          opts.menuContentEl[0].removeEventListener('click', captureClickListener, true);
-        };
       }
     }
 
@@ -359,7 +419,7 @@ function MenuProvider($$interimElementProvider) {
      * Attempts to focus an element. Checks whether that element is the currently
      * focused element after attempting.
      * @param {HTMLElement} el - the element to attempt focus on
-     * @returns {bool} - whether the element was successfully focused
+     * @returns {boolean} - whether the element was successfully focused
      */
     function attemptFocus(el) {
       if (el && el.getAttribute('tabindex') != -1) {
@@ -396,7 +456,7 @@ function MenuProvider($$interimElementProvider) {
 
       var menuStyle = $window.getComputedStyle(openMenuNode);
 
-      var originNode = opts.target[0].querySelector('[md-menu-origin]') || opts.target[0],
+      var originNode = opts.target[0].querySelector(prefixer.buildSelector('md-menu-origin')) || opts.target[0],
         originNodeRect = originNode.getBoundingClientRect();
 
       var bounds = {
@@ -409,12 +469,12 @@ function MenuProvider($$interimElementProvider) {
       var alignTarget, alignTargetRect = { top:0, left : 0, right:0, bottom:0 }, existingOffsets  = { top:0, left : 0, right:0, bottom:0  };
       var positionMode = opts.mdMenuCtrl.positionMode();
 
-      if (positionMode.top == 'target' || positionMode.left == 'target' || positionMode.left == 'target-right') {
+      if (positionMode.top === 'target' || positionMode.left === 'target' || positionMode.left === 'target-right') {
         alignTarget = firstVisibleChild();
-        if ( alignTarget ) {
+        if (alignTarget) {
           // TODO: Allow centering on an arbitrary node, for now center on first menu-item's child
           alignTarget = alignTarget.firstElementChild || alignTarget;
-          alignTarget = alignTarget.querySelector('[md-menu-align-target]') || alignTarget;
+          alignTarget = alignTarget.querySelector(prefixer.buildSelector('md-menu-align-target')) || alignTarget;
           alignTargetRect = alignTarget.getBoundingClientRect();
 
           existingOffsets = {
@@ -441,9 +501,15 @@ function MenuProvider($$interimElementProvider) {
           throw new Error('Invalid target mode "' + positionMode.top + '" specified for md-menu on Y axis.');
       }
 
+      var rtl = $mdUtil.isRtl(el);
+
       switch (positionMode.left) {
         case 'target':
           position.left = existingOffsets.left + originNodeRect.left - alignTargetRect.left;
+          transformOrigin += rtl ? 'right'  : 'left';
+          break;
+        case 'target-left':
+          position.left = originNodeRect.left;
           transformOrigin += 'left';
           break;
         case 'target-right':
@@ -451,13 +517,27 @@ function MenuProvider($$interimElementProvider) {
           transformOrigin += 'right';
           break;
         case 'cascade':
-          var willFitRight = (originNodeRect.right + openMenuNodeRect.width) < bounds.right;
+          var willFitRight = rtl ? (originNodeRect.left - openMenuNodeRect.width) < bounds.left : (originNodeRect.right + openMenuNodeRect.width) < bounds.right;
           position.left = willFitRight ? originNodeRect.right - originNode.style.left : originNodeRect.left - originNode.style.left - openMenuNodeRect.width;
           transformOrigin += willFitRight ? 'left' : 'right';
           break;
+        case 'right':
+          if (rtl) {
+            position.left = originNodeRect.right - originNodeRect.width;
+            transformOrigin += 'left';
+          } else {
+            position.left = originNodeRect.right - openMenuNodeRect.width;
+            transformOrigin += 'right';
+          }
+          break;
         case 'left':
-          position.left = originNodeRect.left;
-          transformOrigin += 'left';
+          if (rtl) {
+            position.left = originNodeRect.right - openMenuNodeRect.width;
+            transformOrigin += 'right';
+          } else {
+            position.left = originNodeRect.left;
+            transformOrigin += 'left';
+          }
           break;
         default:
           throw new Error('Invalid target mode "' + positionMode.left + '" specified for md-menu on X axis.');
